@@ -1,0 +1,21 @@
+{
+  "state": { "elems": [], "parent": {}, "size": {}, "groups": 0, "merges": [], "undos": [],
+             "queries": [], "stack": [], "added": 0, "unions": 0, "undone": 0 },
+  "events": [
+    { "kind": "add", "name": "a" },
+    { "kind": "add", "name": "b" },
+    { "kind": "add", "name": "c" },
+    { "kind": "add", "name": "d" },
+    { "kind": "union", "a": "a", "b": "b" },
+    { "kind": "union", "a": "c", "b": "d" },
+    { "kind": "union", "a": "b", "b": "c" },
+    { "kind": "find", "a": "a", "b": "d" },
+    { "kind": "undo", "count": 1 },
+    { "kind": "add", "name": "e" },
+    { "kind": "union", "a": "d", "b": "e" },
+    { "kind": "add", "name": "f" },
+    { "kind": "union", "a": "f", "b": "b" },
+    { "kind": "find", "a": "e", "b": "b" },
+    { "kind": "union", "a": "a", "b": "a" }
+  ]
+}

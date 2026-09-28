@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>equivundo 等价类账本</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#0d1117;color:#e8eef7}
+.wrap{display:grid;grid-template-columns:minmax(460px,1fr) 320px;gap:16px;padding:18px;align-items:start}
+.card{background:#161d29;border:1px solid #26314a;border-radius:12px;padding:12px}
+h2{font-size:13px;color:#93a4c1;margin:0 0 8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 10px}
+.group{border:1px solid #2b3a58;border-radius:10px;padding:8px;margin:0 0 8px;background:#111827}
+.root{display:inline-block;font-weight:600;color:#ffd479;margin-right:8px}
+.member{display:inline-block;background:#1d2a44;border:1px solid #33456b;border-radius:999px;
+        padding:1px 10px;margin:0 6px 6px 0;font-size:13px}
+.size{color:#8ea2cc;font-size:12px;margin-left:6px}
+.stackrow{font-size:12px;color:#9fd0ff;border-bottom:1px dashed #24304a;padding:3px 0}
+button{font:inherit;padding:5px 11px;border:1px solid #34456b;border-radius:8px;background:#1d2842;color:#e8eef7;cursor:pointer}
+button.main{background:#3b6ef5;border-color:#3b6ef5}
+input{font:inherit;padding:4px 8px;border:1px solid #34456b;border-radius:8px;background:#0b1220;color:#e8eef7;width:70px}
+pre{background:#080d17;color:#9fd0ff;padding:10px;border-radius:8px;overflow:auto;font-size:12px}
+.chip{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;background:#1f2c4d;color:#9fd0ff;margin-right:6px}
+.chip.bad{background:#3a1f2b;color:#ff9aa9}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h2>分量分区条</h2>
+    <div id="groups"></div>
+    <h2 style="margin-top:12px">撤销栈（栈底在上）</h2>
+    <div id="stackbox"></div>
+    <pre id="out">还没跑</pre>
+  </div>
+  <div class="card">
+    <h2>操作</h2>
+    <div class="row">元素 <input id="name" value="a"><button id="doAdd" class="main">登记</button></div>
+    <div class="row"><input id="left" value="a"> 与 <input id="right" value="b"><button id="doUnion" class="main">合并</button></div>
+    <div class="row"><button id="doFind">查询同类</button>撤销 <input id="count" type="number" value="1"><button id="doUndo">撤销</button></div>
+    <div id="log" style="font-size:12px;color:#8ea2cc">点上面的按钮开始。</div>
+    <div id="legend" style="margin-top:8px"></div>
+  </div>
+</div>
+<div id="scene" hidden>{
+  "state": { "elems": [], "parent": {}, "size": {}, "groups": 0, "merges": [], "undos": [],
+             "queries": [], "stack": [], "added": 0, "unions": 0, "undone": 0 },
+  "events": [
+    { "kind": "add", "name": "a" },
+    { "kind": "add", "name": "b" },
+    { "kind": "add", "name": "c" },
+    { "kind": "add", "name": "d" },
+    { "kind": "union", "a": "a", "b": "b" },
+    { "kind": "union", "a": "c", "b": "d" },
+    { "kind": "union", "a": "b", "b": "c" },
+    { "kind": "find", "a": "a", "b": "d" },
+    { "kind": "undo", "count": 1 },
+    { "kind": "add", "name": "e" },
+    { "kind": "union", "a": "d", "b": "e" },
+    { "kind": "add", "name": "f" },
+    { "kind": "union", "a": "f", "b": "b" },
+    { "kind": "find", "a": "e", "b": "b" },
+    { "kind": "union", "a": "a", "b": "a" }
+  ]
+}</div>
+<script type="module">
+import { render } from "./app.js";
+
+const spec = JSON.parse(document.getElementById("scene").textContent);
+function draw() {
+  const view = render(spec);
+  document.getElementById("out").textContent = JSON.stringify(view, null, 1);
+  const box = document.getElementById("groups");
+  box.textContent = "";
+  for (const [root, members] of view.table) {
+    const row = document.createElement("div");
+    row.className = "group";
+    const head = document.createElement("span");
+    head.className = "root";
+    head.textContent = "根 " + root;
+    row.appendChild(head);
+    for (const member of members) {
+      const chip = document.createElement("span");
+      chip.className = "member";
+      chip.textContent = member;
+      row.appendChild(chip);
+    }
+    const size = document.createElement("span");
+    size.className = "size";
+    size.textContent = "大小 " + view.sizes.filter(function (row) { return row[0] === root; })
+      .map(function (row) { return row[1]; }).join("");
+    row.appendChild(size);
+    box.appendChild(row);
+  }
+  const stackbox = document.getElementById("stackbox");
+  stackbox.textContent = "";
+  for (const step of view.stack) {
+    const line = document.createElement("div");
+    line.className = "stackrow";
+    line.textContent = "把 " + step[0] + " 挂到 " + step[1];
+    stackbox.appendChild(line);
+  }
+  const legend = document.getElementById("legend");
+  legend.textContent = "";
+  const chip = function (label, bad) {
+    const span = document.createElement("span");
+    span.className = bad ? "chip bad" : "chip";
+    span.textContent = label;
+    legend.appendChild(span);
+  };
+  chip("分量数 " + view.groups);
+  chip("登记 " + view.added);
+  chip("合并 " + view.unions);
+  chip("撤销 " + view.undone);
+  chip("父表自洽 " + view.consistent, !view.consistent);
+  chip("大小一致 " + view.sizes_ok, !view.sizes_ok);
+  document.getElementById("log").textContent =
+    "异常事件 " + view.failed_events + " 条；最近一条 " +
+    (view.failed_marks.length > 0 ? view.failed_marks[view.failed_marks.length - 1].join(" ") : "无");
+}
+document.getElementById("doAdd").addEventListener("click", function () {
+  spec.events.push({ kind: "add", name: document.getElementById("name").value });
+  draw();
+});
+document.getElementById("doUnion").addEventListener("click", function () {
+  spec.events.push({ kind: "union", a: document.getElementById("left").value,
+                     b: document.getElementById("right").value });
+  draw();
+});
+document.getElementById("doFind").addEventListener("click", function () {
+  spec.events.push({ kind: "find", a: document.getElementById("left").value,
+                     b: document.getElementById("right").value });
+  draw();
+});
+document.getElementById("doUndo").addEventListener("click", function () {
+  spec.events.push({ kind: "undo", count: Number(document.getElementById("count").value) });
+  draw();
+});
+draw();
+</script>
+</body>
+</html>
